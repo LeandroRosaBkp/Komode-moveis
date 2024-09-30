@@ -14,10 +14,12 @@ export default function ProdutoPage({ params }: PageParams) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stockNumber, setStockNumber] = useState<number | null>(null);
+  const [fotos, setFotos] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Primeira requisição para obter os dados do produto
         const response = await fetch(
           `https://apikomode.altuori.com/wp-json/api/produto/${params.produtos}`,
           {
@@ -32,6 +34,31 @@ export default function ProdutoPage({ params }: PageParams) {
         }
         const data = await response.json();
         setData(data);
+
+        // Segunda requisição para buscar imagens personalizadas
+        const responseFotos = await fetch(
+          `https://apikomode.altuori.com/wp-json/api/produto?cor=img&produto_cod=${data.produto_cod}`
+        );
+
+        const dataFotos = await responseFotos.json();
+
+        let imagensCombinadas = [];
+
+        if (dataFotos[0]?.fotos?.length > 0) {
+          // Se houver imagens na segunda requisição, exibe todas
+          const fotosPersonalizadas = dataFotos[0].fotos;
+          imagensCombinadas = [...fotosPersonalizadas];
+
+          // Adiciona apenas a primeira imagem da primeira requisição no final
+          if (data.fotos?.[0]) {
+            imagensCombinadas.push(data.fotos[0]);
+          }
+        } else {
+          // Se não houver imagens na segunda requisição, exibe todas da primeira
+          imagensCombinadas = data.fotos || [];
+        }
+
+        setFotos(imagensCombinadas);
       } catch (error: any) {
         setError(error.message);
       } finally {
@@ -40,6 +67,7 @@ export default function ProdutoPage({ params }: PageParams) {
     };
     fetchData();
 
+    // Configuração do número de estoque (simulação)
     const storedStockNumber = localStorage.getItem(
       `stockNumber_${params.produtos}`
     );
@@ -74,13 +102,13 @@ export default function ProdutoPage({ params }: PageParams) {
 
   const handlePrevClick = () => {
     setCurrentIndex((prevIndex) =>
-      prevIndex > 0 ? prevIndex - 1 : data.fotos.length - 1
+      prevIndex > 0 ? prevIndex - 1 : fotos.length - 1
     );
   };
 
   const handleNextClick = () => {
     setCurrentIndex((prevIndex) =>
-      prevIndex < data.fotos.length - 1 ? prevIndex + 1 : 0
+      prevIndex < fotos.length - 1 ? prevIndex + 1 : 0
     );
   };
 
@@ -99,8 +127,8 @@ export default function ProdutoPage({ params }: PageParams) {
                 &lt;
               </button>
               <Image
-                src={data.fotos[currentIndex].src}
-                alt={data.fotos[currentIndex].titulo}
+                src={fotos[currentIndex]?.src}
+                alt={fotos[currentIndex]?.titulo}
                 width={600}
                 height={500}
                 className="border border-gray-300 rounded-md max-w-full h-auto"
@@ -113,7 +141,7 @@ export default function ProdutoPage({ params }: PageParams) {
               </button>
             </div>
             <div className="flex flex-wrap justify-center gap-2 mt-4">
-              {data.fotos.map((foto: any, index: number) => (
+              {fotos.map((foto: any, index: number) => (
                 <Image
                   key={index}
                   src={foto.src}

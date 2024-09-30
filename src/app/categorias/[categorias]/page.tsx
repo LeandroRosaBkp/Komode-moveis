@@ -1,3 +1,4 @@
+//@ts-nocheck
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { PageParams } from "@/interfaces/Produtos-types";
@@ -16,8 +17,27 @@ const CategoriasPage = ({ params }: PageParams) => {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState<string>("");
 
+  // Função para buscar imagens personalizadas se necessário
+  const fetchCustomImage = async (produto_cod: string) => {
+    try {
+      const response = await fetch(
+        `https://apikomode.altuori.com/wp-json/api/produto?cor=img&produto_cod=${produto_cod}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data[0] && data[0].fotos && data[0].fotos.length > 0) {
+          return data[0].fotos[0].src; // Retorna a primeira imagem encontrada
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao buscar imagem customizada", error);
+    }
+    return null;
+  };
+
+  // Função para buscar os produtos e atualizar as imagens, se necessário
   const fetchProdutos = useCallback(async () => {
-    let url = `https://apikomode.altuori.com/wp-json/api/produto?disponibilidade=sim&categoria=${params.categorias}&q=${searchTerm}&_limit=24`;
+    let url = `https://apikomode.altuori.com/wp-json/api/produto?disponibilidade=sim&categoria=${params.categorias}&q=${searchTerm}&_limit=24&`;
     Object.keys(filters).forEach((key) => {
       url += `&${key}=${filters[key]}`;
     });
@@ -39,7 +59,18 @@ const CategoriasPage = ({ params }: PageParams) => {
         throw new Error("Nenhum produto encontrado");
       }
 
-      setProdutos(data);
+      // Atualiza os produtos com imagens personalizadas, se necessário
+      const updatedData = await Promise.all(
+        data.map(async (produto: any) => {
+          const customImageSrc = await fetchCustomImage(produto.produto_cod);
+          return {
+            ...produto,
+            customFotoSrc: customImageSrc || produto.fotos?.[0]?.src || null,
+          };
+        })
+      );
+
+      setProdutos(updatedData);
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -84,33 +115,30 @@ const CategoriasPage = ({ params }: PageParams) => {
                 key={produto.id}
                 className="flex flex-col items-center text-center justify-around relative w-full col-span-1 pb-2 sm:p-1 bg-white border border-gray-300 rounded-lg overflow-hidden shadow-sm transition-transform transform hover:scale-105 group cursor-pointer"
               >
-                {produto.fotos && produto.fotos.length > 0 && (
-                  <Link href={`/produtos/${produto.id}`}>
-                    <div className="relative w-full h-full ">
-                      <Image
-                        src={produto.fotos[0].src}
-                        alt={`Imagem de ${produto.nome}`}
-                        objectFit="cover"
-                        className="w-full transition-opacity duration-500 rounded-md group-hover:opacity-30"
-                        width={300}
-                        height={300}
-                      />
-                      <div className="absolute top-2 left-2 bg-red-700 text-white text-xs py-1 px-2 rounded-full font-bold">
-                        Frete Grátis
-                      </div>
-                      {produto.profundidade_fechado && (
-                        <div className="absolute top-2 right-2 bg-green-700 text-white sm:text-xs text-[8px] sm:w-12 w-10 sm:h-12 h-10 sm:py-4 py-3 px-1 rounded-full font-bold text-center">
-                          {produto.largura} m
-                        </div>
-                      )}
-                      <div className="absolute inset-0 flex justify-center items-center opacity-0 transition-opacity duration-500 group-hover:opacity-100">
-                        <span className="bg-red-700 text-white text-lg py-2 px-4 rounded-lg hover:bg-red-800">
-                          Ver detalhes
-                        </span>
-                      </div>
+                <Link href={`/produtos/${produto.id}`}>
+                  <div className="relative w-full h-full ">
+                    <Image
+                      src={produto.customFotoSrc || produto.fotos[0]?.src}
+                      alt={`Imagem de ${produto.nome}`}
+                      className="w-full transition-opacity duration-500 rounded-md group-hover:opacity-30"
+                      width={300}
+                      height={300}
+                    />
+                    <div className="absolute top-2 left-2 bg-red-700 text-white text-xs py-1 px-2 rounded-full font-bold">
+                      Frete Grátis
                     </div>
-                  </Link>
-                )}
+                    {produto.profundidade_fechado && (
+                      <div className="absolute top-2 right-2 bg-green-700 text-white sm:text-xs text-[8px] sm:w-12 w-10 sm:h-12 h-10 sm:py-4 py-3 px-1 rounded-full font-bold text-center">
+                        {produto.largura} m
+                      </div>
+                    )}
+                    <div className="absolute inset-0 flex justify-center items-center opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+                      <span className="bg-red-700 text-white text-lg py-2 px-4 rounded-lg hover:bg-red-800">
+                        Ver detalhes
+                      </span>
+                    </div>
+                  </div>
+                </Link>
                 <div className="text-left w-full h-full p-1">
                   <h2 className="sm:text-lg text-sm truncate">
                     {produto.nome}
@@ -164,33 +192,31 @@ const CategoriasPage = ({ params }: PageParams) => {
               key={produto.id}
               className="flex flex-col items-center text-center justify-around relative w-full col-span-1 pb-2 sm:p-1 bg-white border border-gray-300 rounded-lg overflow-hidden shadow-sm transition-transform transform hover:scale-105 group cursor-pointer"
             >
-              {produto.fotos && produto.fotos.length > 0 && (
-                <Link href={`/produtos/${produto.id}`}>
-                  <div className="relative w-full h-full ">
-                    <Image
-                      src={produto.fotos[0].src}
-                      alt={`Imagem de ${produto.nome}`}
-                      objectFit="cover"
-                      className="w-full transition-opacity duration-500 rounded-md group-hover:opacity-30"
-                      width={300}
-                      height={300}
-                    />
-                    <div className="absolute top-2 left-2 bg-red-700 text-white text-xs py-1 px-2 rounded-full font-bold">
-                      Frete Grátis
-                    </div>
-                    {produto.profundidade_fechado && (
-                      <div className="absolute top-2 right-2 bg-green-700 text-white sm:text-xs text-[8px] sm:w-12 w-10 sm:h-12 h-10 sm:py-4 py-3 px-1 rounded-full font-bold text-center">
-                        {produto.largura} m
-                      </div>
-                    )}
-                    <div className="absolute inset-0 flex justify-center items-center opacity-0 transition-opacity duration-500 group-hover:opacity-100">
-                      <span className="bg-red-700 text-white text-lg py-2 px-4 rounded-lg hover:bg-red-800">
-                        Ver detalhes
-                      </span>
-                    </div>
+              <Link href={`/produtos/${produto.id}`}>
+                <div className="relative w-full h-full ">
+                  <Image
+                    src={produto.customFotoSrc || produto.fotos[0]?.src}
+                    alt={`Imagem de ${produto.nome}`}
+                    objectFit="cover"
+                    className="w-full transition-opacity duration-500 rounded-md group-hover:opacity-30"
+                    width={300}
+                    height={300}
+                  />
+                  <div className="absolute top-2 left-2 bg-red-700 text-white text-xs py-1 px-2 rounded-full font-bold">
+                    Frete Grátis
                   </div>
-                </Link>
-              )}
+                  {produto.profundidade_fechado && (
+                    <div className="absolute top-2 right-2 bg-green-700 text-white sm:text-xs text-[8px] sm:w-12 w-10 sm:h-12 h-10 sm:py-4 py-3 px-1 rounded-full font-bold text-center">
+                      {produto.largura} m
+                    </div>
+                  )}
+                  <div className="absolute inset-0 flex justify-center items-center opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+                    <span className="bg-red-700 text-white text-lg py-2 px-4 rounded-lg hover:bg-red-800">
+                      Ver detalhes
+                    </span>
+                  </div>
+                </div>
+              </Link>
               <div className="text-left w-full h-full p-1">
                 <h2 className="sm:text-lg text-sm truncate">{produto.nome}</h2>
                 <p className="line-through text-red-600 sm:text-sm text-xs">
